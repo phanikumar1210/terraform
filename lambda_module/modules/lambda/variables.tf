@@ -108,3 +108,9 @@ variable "source_folder" {
   default     = null
   description = "description"
 }
+
+variable "custom_policy" {
+  type        = string
+  default     = null
+  description = "json format custom policy document"
+}

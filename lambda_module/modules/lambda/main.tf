@@ -3,11 +3,11 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 data "archive_file" "lambda_file" {
-  count         = var.source_file_path != null || var.source_folder != null ? 1 : 0
-  type          = "zip"
-  source_file   = var.source_file_path !=null ? var.source_file_path: null
-  source_dir = var.source_folder !=null? var.source_folder : null
-  output_path   = "${var.function_name}.zip"
+  count       = var.source_file_path != null || var.source_folder != null ? 1 : 0
+  type        = "zip"
+  source_file = var.source_file_path != null ? var.source_file_path : null
+  source_dir  = var.source_folder != null ? var.source_folder : null
+  output_path = "${var.function_name}.zip"
 }
 
 resource "aws_iam_role" "lambda" {
@@ -47,9 +47,16 @@ data "aws_iam_policy_document" "logs_policy" {
   }
 }
 
-resource "aws_iam_policy" "managed_policy" {
-  count = var.lambda_role_arn == null ? 1 : 0
+resource "aws_iam_policy" "lambda_custom_policy" {
+  count       = var.custom_policy != null ? 1 : 0
+  name        = "${var.function_name}-custom-policy"
+  path        = "/"
+  description = "${var.function_name} custom policy created using terraform"
+  policy      = var.custom_policy
+}
 
+resource "aws_iam_policy" "managed_policy" {
+  count  = var.lambda_role_arn == null ? 1 : 0
   name   = "${var.function_name}-lambda-logs-policy"
   path   = "/"
   policy = data.aws_iam_policy_document.logs_policy[0].json
@@ -62,6 +69,12 @@ resource "aws_iam_role_policy_attachment" "logs_policy_attachment" {
   policy_arn = aws_iam_policy.managed_policy[0].arn
 }
 
+resource "aws_iam_role_policy_attachment" "custom_policy_attachment" {
+  count      = var.custom_policy != null ? 1 : 0
+  role       = aws_iam_role.lambda[0].name
+  policy_arn = aws_iam_policy.lambda_custom_policy[0].arn
+}
+
 resource "aws_lambda_function" "lambda_function" {
   function_name     = var.function_name
   description       = var.description
@@ -71,8 +84,8 @@ resource "aws_lambda_function" "lambda_function" {
   runtime           = var.runtime
   timeout           = var.timeout
   publish           = var.enable_version
-  filename          = var.source_file_path !=null || var.source_folder !=null ? "${var.function_name}.zip" : null
-  source_code_hash  = var.source_file_path !=null || var.source_folder !=null ? data.archive_file.lambda_file[0].output_sha : null
+  filename          = var.source_file_path != null || var.source_folder != null ? "${var.function_name}.zip" : null
+  source_code_hash  = var.source_file_path != null || var.source_folder != null ? data.archive_file.lambda_file[0].output_sha : null
   s3_bucket         = var.s3_bucket
   s3_key            = var.s3_key
   s3_object_version = var.s3_object_version
